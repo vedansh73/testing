@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase OTP &amp; Database</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #090d16;
+      color: #f8fafc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: rgba(30, 41, 59, 0.88);
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      padding: 24px;
+      border-radius: 14px;
+      width: 100%;
+      max-width: 350px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #c4b5fd;
+    }
+    input, button {
+      width: 100%;
+      padding: 11px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    input {
+      background: #0f172a;
+      color: #fff;
+      border: 1px solid #334155;
+    }
+    button {
+      background: #7c3aed;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #6d28d9;
+    }
+    #status {
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #38bdf8;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>Verify &amp; Save Data</h2>
+    <input type="text" id="username" placeholder="Apna naam likhein">
+    <input type="email" id="email" placeholder="Apna email likhein">
+    <button id="sendBtn" onclick="sendOTP()">Verification Link Bhejein</button>
+    <p id="status"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+    import {
+      getAuth,
+      sendSignInLinkToEmail,
+      isSignInWithEmailLink,
+      signInWithEmailLink
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDbssJ37MopwWHijjihNYvyQyKcGd9nEW4",
+      authDomain: "website-3370c.firebaseapp.com",
+      projectId: "website-3370c",
+      storageBucket: "website-3370c.firebasestorage.app",
+      messagingSenderId: "130772213121",
+      appId: "1:130772213121:web:2c3bd8fd9be8dd684a1c80",
+      measurementId: "G-RN1GLP7RC0"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app); } catch (e) {}
+
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    window.sendOTP = async () => {
+      const name = document.getElementById("username").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const statusEl = document.getElementById("status");
+
+      if (!name || !email) {
+        statusEl.innerText = "Kripya naam aur email dono bharein.";
+        return;
+      }
+
+      const actionCodeSettings = {
+        url: window.location.href,
+        handleCodeInApp: true
+      };
+
+      try {
+        await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+        localStorage.setItem("pendingEmail", email);
+        localStorage.setItem("pendingName", name);
+        statusEl.innerText = "Verification link aapke email par bhej diya gaya hai. Inbox ya Spam check karein.";
+      } catch (err) {
+        statusEl.innerText = "Error: " + err.message;
+      }
+    };
+
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      const statusEl = document.getElementById("status");
+      let email = localStorage.getItem("pendingEmail");
+      let name = localStorage.getItem("pendingName") || "User";
+
+      if (!email) {
+        email = window.prompt("Confirm karne ke liye apna email likhein:");
+      }
+
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href)
+          .then(async (result) => {
+            await setDoc(doc(db, "users", result.user.uid), {
+              name: name,
+              email: email,
+              verified: true,
+              createdAt: new Date().toISOString()
+            });
+
+            localStorage.removeItem("pendingEmail");
+            localStorage.removeItem("pendingName");
+            statusEl.innerText = "Verify ho gaya! Data Firestore database mein save ho chuka hai.";
+          })
+          .catch((err) => {
+            statusEl.innerText = "Verification error: " + err.message;
+          });
+      }
+    }
+  </script>
+
+</body>
+</html>
